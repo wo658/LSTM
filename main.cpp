@@ -16,10 +16,6 @@ std::vector<std::vector<std::vector<double>>> split2DVector(const std::vector<st
 
 	return result;
 }
-
-
-
-
 int main() {
 	//Regression 
 	//Data Load
@@ -74,12 +70,6 @@ int main() {
 	int b_size = 50;
 	vector<vector<double>> x_train_temp, y_train_temp;
 
-
-
-
-
-
-
 	// 벡터를 자를 행 크기 설정
 	size_t chunkSize = 50;
 	// 2차원 벡터를 나눕니다.
@@ -87,8 +77,6 @@ int main() {
 	std::vector<std::vector<std::vector<double>>> splitVecs_y = split2DVector(y_train, chunkSize);
  
 	for (int epoch = 0; epoch < 1000; epoch++) {
-
-
 		for (int i = 0; i < splitVecs_x.size(); i++) {
 
 			int j = 0;
@@ -97,16 +85,11 @@ int main() {
 				error += (sequenceOutputs[j][0] - y_train[t][0]) * (sequenceOutputs[j][0] - y_train[t][0]);
 				j++;
 				//cout << "t is = " <<t  << " "<< endl;
-
 				//rnn.backward(splitVecs_x[i], splitVecs_y[i],sequenceOutputs,1);
 			}
+
 			error = error / splitVecs_x.size();
 			std::cout << "Epoch : " << epoch << " Error : " << error << std::endl;
-
-			
-
-
-
 
 			error = 0;
 		}

@@ -197,7 +197,36 @@ public:
 
 	}
 
-	void back() {
+	void back(std::vector<std::vector<double>>& inputs) {
+		// time 에 따른 weight 가중치 합
+		std::vector<std::vector<double>> dWhfSum(gate_size, std::vector<double>(gate_size, 0.0));
+		std::vector<std::vector<double>> dWxfSum(input_size, std::vector<double>(gate_size, 0.0));
+		std::vector<std::vector<double>> dWhiSum(gate_size, std::vector<double>(gate_size, 0.0));
+		std::vector<std::vector<double>> dWxiSum(input_size, std::vector<double>(gate_size, 0.0));
+		std::vector<std::vector<double>> dWhcSum(gate_size, std::vector<double>(gate_size, 0.0));
+		std::vector<std::vector<double>> dWxcSum(input_size, std::vector<double>(gate_size, 0.0));
+		std::vector<std::vector<double>> dWhoSum(gate_size, std::vector<double>(gate_size, 0.0));
+		std::vector<std::vector<double>> dWxoSum(input_size, std::vector<double>(gate_size, 0.0));
+		std::vector<std::vector<double>> dWho2Sum(gate_size, std::vector<double>(gate_size, 0.0));
+
+
+		for (int t = inputs.size() - 1; t >= 0; --t) {
+
+			// 각 가중합들의 그라디언트 계산
+
+
+
+
+
+
+
+			// 업데이트
+
+
+		}
+
+
+
 
 	}
 
