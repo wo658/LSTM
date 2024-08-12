@@ -69,11 +69,16 @@ int main() {
 	int h = 30;  // Number of hidden nodes
 	int o = 1;  // Number of output nodes
 
-	RNN rnn(i, h, o, 0.001);
 	double error = 0;
-
+	LSTM lstm(i, h, o, 0.01);
 	int b_size = 50;
 	vector<vector<double>> x_train_temp, y_train_temp;
+
+
+
+
+
+
 
 	// 벡터를 자를 행 크기 설정
 	size_t chunkSize = 50;
@@ -88,12 +93,12 @@ int main() {
 
 			int j = 0;
 			for (int t = splitVecs_x[i].size() * i; t < (i+1) *splitVecs_x[i].size(); t++) {
-				std::vector<std::vector<double>> sequenceOutputs = rnn.forward(splitVecs_x[i]);
+				std::vector<std::vector<double>> sequenceOutputs = lstm.feed(splitVecs_x[i]);
 				error += (sequenceOutputs[j][0] - y_train[t][0]) * (sequenceOutputs[j][0] - y_train[t][0]);
 				j++;
 				//cout << "t is = " <<t  << " "<< endl;
 
-				rnn.backward(splitVecs_x[i], splitVecs_y[i],sequenceOutputs,1);
+				//rnn.backward(splitVecs_x[i], splitVecs_y[i],sequenceOutputs,1);
 			}
 			error = error / splitVecs_x.size();
 			std::cout << "Epoch : " << epoch << " Error : " << error << std::endl;

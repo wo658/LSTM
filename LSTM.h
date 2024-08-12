@@ -54,16 +54,16 @@ private:
 	std::vector<std::vector<double>> wxc;
 	std::vector<std::vector<double>> who;	//  output gate
 	std::vector<std::vector<double>> wxo;
-
+	std::vector<std::vector<double>> who2;
 	//gate 의 출력벡터의 차원은 ? LSTM 에서 모든 Gate 의 출력 차원은 Layer 의 유닛수로 동일하게 설정된다.
 
 	double bf = 1;
 	double bi = 1;
 	double bc = 1;
 	double bo = 1;
+	double learning_rate;
 
 	// TimeLine 단위로 저장되는 변수들
-	std::vector<double> output;
 	std::vector<std::vector<double>> outputs;
 	std::vector<double> hiddenstate;		
 	std::vector<std::vector<double>> hiddenstates; 
@@ -75,10 +75,11 @@ private:
 	std::vector<std::vector<double>> inputgates;
 	std::vector<double> cellgate;
 	std::vector<std::vector<double>> cellgates;
-
+	std::vector<double> outgate;
+	std::vector<std::vector<double>> outgates;
 
 public:
-	LSTM(int i , int h , int o) : input_size(i) ,gate_size(h),output_size(o) 
+	LSTM(int i, int h, int o, double lr) : input_size(i), gate_size(h), output_size(o), learning_rate(lr)
 	{
 
 		whf.resize(h, std::vector<double>(gate_size));
@@ -89,10 +90,30 @@ public:
 		wxc.resize(i, std::vector<double>(gate_size));
 		who.resize(h, std::vector<double>(gate_size));
 		wxo.resize(i, std::vector<double>(gate_size));
+		who2.resize(h, std::vector<double>(gate_size));
+		
+		for (int i = 0; i < input_size; i++)
+			for (int h = 0; h < gate_size; h++)
+			{
+				wxf[i][h] = randomWeight();
+				wxi[i][h] = randomWeight();
+				wxc[i][h] = randomWeight();
+				wxo[i][h] = randomWeight();
+			}
+		for (int h=0;h<gate_size;h++)
+			for (int hh = 0; hh < gate_size; hh++) {
+				whf[h][hh] = randomWeight();
+				whi[h][hh] = randomWeight();
+				whc[h][hh] = randomWeight();
+				who[h][hh] = randomWeight();
+			}
+		for (int h = 0; h < gate_size; h++)
+			for (int o = 0; o < gate_size; o++)
+				who2[h][o] = randomWeight();
 
 
 	}
-
+	// weight 초기화 + 값 초기화
 	std::vector<std::vector<double>> feed(std::vector<std::vector<double>>& inputs) {
 		std::vector<std::vector<double>> outputs(inputs.size(), std::vector<double>(output_size, 0.0));
 
@@ -114,21 +135,60 @@ public:
 			
 			// forget gate
 			forgetgate = gatefeed(inputs[t], wxf, whf);
+			for(int i=0;i<gate_size;i++)
+				forgetgate[i] = sigmoid(forgetgate[i]);
 			forgetgates.push_back(forgetgate);
 
 
 			// input gate
 			inputgate = gatefeed(inputs[t], wxi, whi);
+			for (int i = 0; i < gate_size; i++)
+				inputgate[i] = sigmoid(inputgate[i]);
 			inputgates.push_back(inputgate);
 
 
 			// cell gate
 			cellgate = gatefeed(inputs[t], wxc, whc);
-			inputgates.push_back(cellgate);
+			for (int i = 0; i < gate_size; i++)
+				cellgate[i] = tanh(cellgate[i]);
+			cellgates.push_back(cellgate);
 
-			// output gate
-			output = gatefeed(inputs[t], wxo, who);
-			inputgates.push_back(output);
+			// out gate
+			outgate = gatefeed(inputs[t], wxo, who);
+			for (int i = 0; i < gate_size; i++)
+				outgate[i] = sigmoid(outgate[i]);
+			outgates.push_back(outgate);
+
+			// 1 . forget gate X cellstates[t-1]    -> 원소별 곱셈 .
+			for (int i = 0; i < gate_size; i++)
+				cellstate[i] = forgetgate[i] * cellstate[i];
+
+			// 초기 cellstate 는 이전 노드의 값  
+			// 2 .  result(1) + ( input gate ) * ( cellgate)        = Cellstate[t]
+			for (int i = 0; i < gate_size; i++) {
+				cellstate[i] = cellstate[i] + (inputgate[i]) * cellgate[i];
+			}
+			// 여기까지 했으면 cellstate 는 t시점의 cellstate가 된다. 
+			cellstates.push_back(cellstate);
+			// 이제 hiddenstate 와 output을 구할 차례
+
+			// 3 .  outgate * tanh(cellstate[t]) = hiddenstate[t]
+
+			for (int i = 0; i < gate_size; i++) {
+				hiddenstate[i] = outgate[i] * tanh(cellstate[i]);
+			}
+
+			hiddenstates.push_back(hiddenstate);
+
+
+			// 4 . hiddenstate * node = output
+
+			for (int i=0;i<gate_size;i++)
+				for (int j = 0; j < output_size; j++) {
+					outputs[t][j] += who2[i][j] * hiddenstate[i];
+				}
+
+
 
 		}
 
@@ -141,9 +201,6 @@ public:
 
 	}
 
-	void weight_init() {
-
-	}
 
 	// 하나의 타임라인에 대해서만 계산
 	std::vector<double> gatefeed(std::vector<double>& input , std::vector<std::vector<double>>& startX , std::vector<std::vector<double>>& startH) {
