@@ -15,7 +15,7 @@ double randomWeight() {
 
 // Sigmoid function definition
 double sigmoid(double x) {
-	return 1.0 / (1.0 + std::exp(-x));
+	return 1.0 / (1.0 + std::exp(-x));	
 }
 double sigmoid_derivative(double x) {
 	double sigmoid_value = sigmoid(x);
@@ -61,7 +61,7 @@ private:
 	double bi = 1;
 	double bc = 1;
 	double bo = 1;
-	double learning_rate;
+	double learningRate;
 
 	// TimeLine 단위로 저장되는 변수들
 	std::vector<std::vector<double>> outputs;
@@ -79,7 +79,7 @@ private:
 	std::vector<std::vector<double>> outgates;
 
 public:
-	LSTM(int i, int h, int o, double lr) : input_size(i), gate_size(h), output_size(o), learning_rate(lr)
+	LSTM(int i, int h, int o, double lr) : input_size(i), gate_size(h), output_size(o), learningRate(lr)
 	{
 
 		whf.resize(h, std::vector<double>(gate_size));
@@ -197,7 +197,7 @@ public:
 
 	}
 
-	void back(std::vector<std::vector<double>>& inputs) {
+	void back(std::vector<std::vector<double>>& inputs, std::vector<std::vector<double>>& targets, std::vector<std::vector<double>>& outputs) {
 		// time 에 따른 weight 가중치 합
 		std::vector<std::vector<double>> dWhfSum(gate_size, std::vector<double>(gate_size, 0.0));
 		std::vector<std::vector<double>> dWxfSum(input_size, std::vector<double>(gate_size, 0.0));
@@ -211,18 +211,119 @@ public:
 
 
 		for (int t = inputs.size() - 1; t >= 0; --t) {
-
+			std::vector<double> outputDelta(gate_size, 0.0);
+			static std::vector<double> prevCellDelta(gate_size, 0.0);
+			std::vector<double> cellDelta(gate_size, 0.0);
+			std::vector<double> inputDelta(gate_size, 0.0); 
+			std::vector<double> forgetDelta(gate_size, 0.0);
 			// 각 가중합들의 그라디언트 계산
 
+			// 0 . Error 계산
+			double error = 0;
+			for (int o = 0; o < output_size; ++o) 
+				error += (-targets[t][o] + outputs[t][o]);
+			// 1 . 출력에서의 그라디언트 계산
+			// 출력값과 히든스테이트는 직접 연결임으로 error = Loss 에 대한 ht 미분
+
+			// 2 . 각 게이트에 대한 그라디언트 계산
+
+			// outputgate 의 그라디언트
+			for (int i = 0; i < gate_size; i++) {
+				outputDelta[i] = error * tanh(cellstates[t][i]);
+			}
+
+			//std::cout << "test1";
+
+			// cellgate 의 그라디언트 
+			for (int i = 0; i < gate_size; i++) {
+				cellDelta[i] = error * outgates[t][i] * (1 - tanh(cellstates[t][i]) *tanh(cellstates[t][i])); 
+				if (t != inputs.size() - 1)
+					cellDelta[i] += prevCellDelta[i] * forgetgates[t + 1][i];
+
+			//	std::cout << "test2";
+			}
+			prevCellDelta = cellDelta;
+
+			//std::cout << "test2";
+
+			// inputgate 의 그라디언트
+			for (int i = 0; i < gate_size; i++) {
+				inputDelta[i] = cellDelta[i] * inputgates[t][i] * (1 - inputgates[t][i]) *cellgates[t][i];
+			}
+
+			//std::cout << "test3";
+
+			// forgetgate 의 그라디언트
+
+			for (int i = 0; i < gate_size; i++) {
+				forgetDelta[i] = cellDelta[i]  * forgetgates[t][i] * (1 - forgetgates[t][i]);
+				if( t != 0)
+					forgetDelta[i] *=cellstates[t - 1][i];
+			}
+
+			//std::cout << "test4";
+
+			// 3 . 셀 상태 업데이트
+
+			// 4 . 가중치와 바이어스에 대한 그라디언트 계산
+
+			for (int h = 0; h < gate_size; ++h) {
+				for (int o = 0; o < output_size; ++o) {
+					dWho2Sum[h][o] += error;
+				}
+			}
+			for (int i = 0; i < input_size; ++i) {
+				for (int h = 0; h < gate_size; ++h) {
+					dWxfSum[i][h] +=  forgetDelta[h] * sigmoid_derivative(forgetgates[t][h]) * inputs[t][i] ;
+					dWxcSum[i][h] += cellDelta[h] * tanh_derivative(cellgates[t][h]) * inputs[t][i];
+					dWxiSum[i][h] += inputDelta[h] * sigmoid_derivative(inputgates[t][h]) * inputs[t][i];
+					dWxoSum[i][h] += outputDelta[h] * sigmoid_derivative(outgates[t][h]) * inputs[t][i];
+				}
+			}
+			//std::cout << "test5";
+			for (int h = 0; h < gate_size; ++h) {
+				for (int hh = 0; hh < gate_size; ++hh) {
+					if (t != 0) {
+						dWhfSum[h][hh] += forgetDelta[hh] * sigmoid_derivative(forgetgates[t][hh]) * hiddenstates[t - 1][h];
+						dWhcSum[h][hh] += cellDelta[hh] * tanh_derivative(cellgates[t][hh]) * hiddenstates[t - 1][h];
+						dWhiSum[h][hh] += inputDelta[hh] * sigmoid_derivative(inputgates[t][hh]) * hiddenstates[t - 1][h];
+						dWhoSum[h][hh] += outputDelta[hh] * sigmoid_derivative(outgates[t][hh]) * hiddenstates[t - 1][h];
+					}
+				}
+			}
 
 
 
 
 
 
-			// 업데이트
 
 
+
+
+
+		}
+		// 업데이트
+		for (int h = 0; h < gate_size; ++h) {
+			for (int o = 0; o < output_size; ++o) {
+				who2[h][o] -= learningRate * dWho2Sum[h][o];
+			}
+		}
+		for (int i = 0; i < input_size; ++i) {
+			for (int h = 0; h < gate_size; ++h) {
+				wxf[i][h] -= learningRate * dWxfSum[i][h];
+				wxc[i][h] -= learningRate * dWxcSum[i][h];
+				wxi[i][h] -= learningRate * dWxiSum[i][h];
+				wxo[i][h] -= learningRate * dWxoSum[i][h];
+			}
+		}
+		for (int h = 0; h < gate_size; ++h) {
+			for (int hh = 0; hh < gate_size; ++hh) {
+				whf[h][hh] -= learningRate * dWhfSum[h][hh];
+				whc[h][hh] -= learningRate * dWhcSum[h][hh];
+				whi[h][hh] -= learningRate * dWhiSum[h][hh];
+				who[h][hh] -= learningRate * dWhoSum[h][hh];
+			}
 		}
 
 
@@ -231,7 +332,7 @@ public:
 	}
 
 
-	// 하나의 타임라인에 대해서만 계산
+	// 하나의 타임라인에 대해서만 계산 feed 함수
 	std::vector<double> gatefeed(std::vector<double>& input , std::vector<std::vector<double>>& startX , std::vector<std::vector<double>>& startH) {
 
 

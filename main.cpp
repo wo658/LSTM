@@ -1,6 +1,7 @@
 #include "MLP_Functions.h"
 //#include "rnn.h"
 #include "LSTM.h"
+//#include "RNN.h"
 #include <cmath>
 #include <windows.h>
 // 2차원 벡터를 주어진 행 크기별로 나누는 함수
@@ -66,12 +67,12 @@ int main() {
 	int o = 1;  // Number of output nodes
 
 	double error = 0;
-	LSTM lstm(i, h, o, 0.01);
-	int b_size = 50;
+	LSTM lstm(i, h, o, 0.001);
+//	RNN rnn(i, h, o, 0.01);
 	vector<vector<double>> x_train_temp, y_train_temp;
 
 	// 벡터를 자를 행 크기 설정
-	size_t chunkSize = 50;
+	size_t chunkSize = 20;
 	// 2차원 벡터를 나눕니다.
 	std::vector<std::vector<std::vector<double>>> splitVecs_x = split2DVector(x_train, chunkSize);
 	std::vector<std::vector<std::vector<double>>> splitVecs_y = split2DVector(y_train, chunkSize);
@@ -80,20 +81,24 @@ int main() {
 		for (int i = 0; i < splitVecs_x.size(); i++) {
 
 			int j = 0;
+			std::vector<std::vector<double>> sequenceOutputs = lstm.feed(splitVecs_x[i]);
+			//std::vector<std::vector<double>> sequenceOutputs = rnn.forward(splitVecs_x[i]);
 			for (int t = splitVecs_x[i].size() * i; t < (i+1) *splitVecs_x[i].size(); t++) {
-				std::vector<std::vector<double>> sequenceOutputs = lstm.feed(splitVecs_x[i]);
+				
 				error += (sequenceOutputs[j][0] - y_train[t][0]) * (sequenceOutputs[j][0] - y_train[t][0]);
 				j++;
 				//cout << "t is = " <<t  << " "<< endl;
-				//rnn.backward(splitVecs_x[i], splitVecs_y[i],sequenceOutputs,1);
+				
 			}
+			//rnn.backward(splitVecs_x[i], splitVecs_y[i],sequenceOutputs,1);
 
-			error = error / splitVecs_x.size();
-			std::cout << "Epoch : " << epoch << " Error : " << error << std::endl;
+			lstm.back(splitVecs_x[i], splitVecs_y[i], sequenceOutputs);
 
-			error = 0;
 		}
-		
+		error = error / x_train.size();
+		std::cout << "Epoch : " << epoch << " Error : " << error << std::endl;
+
+		error = 0;
 	}
 
 	return 0;
